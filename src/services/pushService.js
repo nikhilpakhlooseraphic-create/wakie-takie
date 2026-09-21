@@ -38,3 +38,40 @@ export const sendCallPushNotification = async ({ receiverId, callerId, callerNam
     console.error('[push] failed to send call notification:', error);
   }
 };
+
+const sendUserPush = async (receiverId, message) => {
+  const receiver = await User.findById(receiverId).select('pushToken');
+  if (!receiver?.pushToken) return;
+
+  try {
+    getFirebaseAdmin();
+    const response = await admin.messaging().send({ ...message, token: receiver.pushToken });
+    console.log('[push] sent:', response);
+  } catch (error) {
+    console.error('[push] failed to send:', error);
+  }
+};
+
+// Ordinary visible notifications (title/body) - the OS displays these from
+// the tray on its own, even if the app is killed, with no JS task involved.
+// Routed to the 'friends' Android channel the client creates in
+// pushRegistration.ts, so they show at normal (not silent) importance.
+export const sendFriendRequestPush = ({ receiverId, requesterId, requesterName }) =>
+  sendUserPush(receiverId, {
+    notification: {
+      title: 'New friend request',
+      body: `${requesterName} wants to add you as a friend`
+    },
+    data: { kind: 'friend-request', requesterId },
+    android: { priority: 'high', notification: { channelId: 'friends' } }
+  });
+
+export const sendFriendAcceptedPush = ({ receiverId, accepterId, accepterName }) =>
+  sendUserPush(receiverId, {
+    notification: {
+      title: 'Friend request accepted',
+      body: `${accepterName} accepted your friend request`
+    },
+    data: { kind: 'friend-accepted', accepterId },
+    android: { priority: 'high', notification: { channelId: 'friends' } }
+  });

@@ -74,6 +74,7 @@ export const registerPushToken = asyncHandler(async (req, res) => {
   }
 
   await User.findByIdAndUpdate(req.user._id, { pushToken });
+  console.log(`[push] stored token for user ${req.user._id}: ${pushToken.slice(0, 20)}...`);
 
   res.json({ success: true });
 });

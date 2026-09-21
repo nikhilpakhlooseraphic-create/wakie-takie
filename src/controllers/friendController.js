@@ -2,6 +2,7 @@ import Friendship from '../models/Friendship.js';
 import User from '../models/User.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { getOnlineUsers } from '../sockets/socketHandler.js';
+import { sendFriendRequestPush, sendFriendAcceptedPush } from '../services/pushService.js';
 
 // @desc    Search users by username
 // @route   GET /api/friends/search?q=...
@@ -66,6 +67,12 @@ export const addFriend = asyncHandler(async (req, res) => {
           friendName: req.user.username,
           friendProfileImage: req.user.profileImage
         });
+      } else {
+        sendFriendAcceptedPush({
+          receiverId: friendship.requester,
+          accepterId: currentUserId,
+          accepterName: req.user.username
+        }).catch((error) => console.error('Failed to send friend-accepted push:', error));
       }
 
       return res.json({ success: true, message: 'Friend request accepted' });
@@ -100,6 +107,12 @@ export const addFriend = asyncHandler(async (req, res) => {
         requesterName: req.user.username,
         requesterProfileImage: req.user.profileImage
       });
+    } else {
+      sendFriendRequestPush({
+        receiverId: targetUserId,
+        requesterId: currentUserId,
+        requesterName: req.user.username
+      }).catch((error) => console.error('Failed to send friend-request push:', error));
     }
 
     return res.json({ success: true, message: 'Friend request sent' });
