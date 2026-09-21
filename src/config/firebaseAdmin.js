@@ -25,7 +25,7 @@ export const getFirebaseAdmin = () => {
   if (app) return app;
 
   app = admin.initializeApp({
-    credential: admin.credential.cert(loadServiceAccount())
+    credential: admin.cert(loadServiceAccount())
   });
 
   return app;

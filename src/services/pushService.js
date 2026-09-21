@@ -1,4 +1,4 @@
-import admin from 'firebase-admin';
+import { getMessaging } from 'firebase-admin/messaging';
 import { getFirebaseAdmin } from '../config/firebaseAdmin.js';
 import User from '../models/User.js';
 
@@ -31,8 +31,8 @@ export const sendCallPushNotification = async ({ receiverId, callerId, callerNam
   };
 
   try {
-    getFirebaseAdmin();
-    const response = await admin.messaging().send(message);
+    const app = getFirebaseAdmin();
+    const response = await getMessaging(app).send(message);
     console.log('[push] call notification sent:', response);
   } catch (error) {
     console.error('[push] failed to send call notification:', error);
@@ -44,8 +44,8 @@ const sendUserPush = async (receiverId, message) => {
   if (!receiver?.pushToken) return;
 
   try {
-    getFirebaseAdmin();
-    const response = await admin.messaging().send({ ...message, token: receiver.pushToken });
+    const app = getFirebaseAdmin();
+    const response = await getMessaging(app).send({ ...message, token: receiver.pushToken });
     console.log('[push] sent:', response);
   } catch (error) {
     console.error('[push] failed to send:', error);
@@ -62,7 +62,9 @@ export const sendFriendRequestPush = ({ receiverId, requesterId, requesterName }
       title: 'New friend request',
       body: `${requesterName} wants to add you as a friend`
     },
-    data: { kind: 'friend-request', requesterId },
+    // FCM data payload values must all be strings - requesterId/accepterId
+    // are Mongoose ObjectIds at the call sites, not plain strings.
+    data: { kind: 'friend-request', requesterId: String(requesterId) },
     android: { priority: 'high', notification: { channelId: 'friends' } }
   });
 
@@ -72,6 +74,6 @@ export const sendFriendAcceptedPush = ({ receiverId, accepterId, accepterName })
       title: 'Friend request accepted',
       body: `${accepterName} accepted your friend request`
     },
-    data: { kind: 'friend-accepted', accepterId },
+    data: { kind: 'friend-accepted', accepterId: String(accepterId) },
     android: { priority: 'high', notification: { channelId: 'friends' } }
   });
