@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import Friendship from '../models/Friendship.js';
 import VoiceSession from '../models/VoiceSession.js';
+import { sendCallPushNotification } from '../services/pushService.js';
 
 // In-memory store to map userId to socketId
 const onlineUsers = new Map();
@@ -82,7 +83,7 @@ export const setupSockets = (io) => {
     });
 
     // Event: Transmitting voice chunk
-    socket.on('voice-chunk', ({ receiverId, audioData }) => {
+    socket.on('voice-chunk', async ({ receiverId, audioData }) => {
       if (!receiverId) return;
 
       const receiverSocketId = onlineUsers.get(receiverId);
@@ -92,6 +93,29 @@ export const setupSockets = (io) => {
           senderId: userId,
           audioData
         });
+        return;
+      }
+
+      // Receiver is offline. Only a call offer is worth waking them for -
+      // an answer/ice-candidate implies a call they couldn't have started.
+      let message;
+      try {
+        message = JSON.parse(audioData);
+      } catch (error) {
+        return;
+      }
+      if (message.type !== 'offer') return;
+
+      try {
+        await sendCallPushNotification({
+          receiverId,
+          callerId: userId,
+          callerName: socket.user.username,
+          callerAvatar: socket.user.profileImage,
+          signalingMessage: message
+        });
+      } catch (error) {
+        console.error('Failed to send call push notification:', error);
       }
     });
 

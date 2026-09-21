@@ -55,9 +55,25 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
 // @access  Private
 export const getAllUsers = asyncHandler(async (req, res) => {
   const users = await User.find({ _id: { $ne: req.user._id } }).select('_id username email profileImage');
-  
+
   res.json({
     success: true,
     data: users
   });
+});
+
+// @desc    Save/update the current user's Expo push token
+// @route   POST /api/users/push-token
+// @access  Private
+export const registerPushToken = asyncHandler(async (req, res) => {
+  const { pushToken } = req.body;
+
+  if (!pushToken || typeof pushToken !== 'string') {
+    res.status(400);
+    throw new Error('pushToken is required');
+  }
+
+  await User.findByIdAndUpdate(req.user._id, { pushToken });
+
+  res.json({ success: true });
 });
