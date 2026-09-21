@@ -20,7 +20,13 @@ const io = new Server(server, {
   cors: {
     origin: '*', // Update with client origin in production
     methods: ['GET', 'POST']
-  }
+  },
+  // Defaults (pingInterval 25s + pingTimeout 20s) can take up to 45s to
+  // notice a dead connection - too slow for deciding "is this user actually
+  // reachable for a call right now". Tightened so a killed app is detected
+  // as offline quickly enough for the push-wake fallback to kick in.
+  pingInterval: 15000,
+  pingTimeout: 8000
 });
 
 // Setup Socket.io logic

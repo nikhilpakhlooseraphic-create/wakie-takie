@@ -87,6 +87,15 @@ export const setupSockets = (io) => {
       if (!receiverId) return;
 
       const receiverSocketId = onlineUsers.get(receiverId);
+
+      let message;
+      try {
+        message = JSON.parse(audioData);
+      } catch (error) {
+        message = null;
+      }
+      console.log(`[call] voice-chunk type=${message?.type} receiver=${receiverId} socket=${receiverSocketId || 'offline'}`);
+
       if (receiverSocketId) {
         // Forward the audio chunk immediately to the receiver's socket
         io.to(receiverSocketId).emit('voice-chunk', {
@@ -98,13 +107,7 @@ export const setupSockets = (io) => {
 
       // Receiver is offline. Only a call offer is worth waking them for -
       // an answer/ice-candidate implies a call they couldn't have started.
-      let message;
-      try {
-        message = JSON.parse(audioData);
-      } catch (error) {
-        return;
-      }
-      if (message.type !== 'offer') return;
+      if (!message || message.type !== 'offer') return;
 
       try {
         await sendCallPushNotification({

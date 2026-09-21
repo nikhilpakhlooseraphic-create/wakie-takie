@@ -57,23 +57,27 @@ export const addFriend = asyncHandler(async (req, res) => {
       friendship.status = 'accepted';
       await friendship.save();
       
-      // Real-time Socket Event: Notify requester that request was accepted
+      // Notify the requester both ways - the live socket in case they're
+      // actually connected, AND the push regardless. onlineUsers can lag
+      // behind reality (socket.io's disconnect detection isn't instant), so
+      // gating the push on "socket looks online" silently drops it when the
+      // app was killed moments ago but the server hasn't noticed yet.
       const io = req.app.get('socketio');
       const onlineUsers = getOnlineUsers();
       const requesterSocket = onlineUsers.get(friendship.requester.toString());
+      console.log(`[friends] accept: requester ${friendship.requester} socket=${requesterSocket || 'offline'}`);
       if (requesterSocket) {
         io.to(requesterSocket).emit('friend-accepted', {
           friendId: currentUserId,
           friendName: req.user.username,
           friendProfileImage: req.user.profileImage
         });
-      } else {
-        sendFriendAcceptedPush({
-          receiverId: friendship.requester,
-          accepterId: currentUserId,
-          accepterName: req.user.username
-        }).catch((error) => console.error('Failed to send friend-accepted push:', error));
       }
+      sendFriendAcceptedPush({
+        receiverId: friendship.requester,
+        accepterId: currentUserId,
+        accepterName: req.user.username
+      }).catch((error) => console.error('Failed to send friend-accepted push:', error));
 
       return res.json({ success: true, message: 'Friend request accepted' });
     }
@@ -97,23 +101,24 @@ export const addFriend = asyncHandler(async (req, res) => {
       status: 'pending'
     });
 
-    // Real-time Socket Event: Notify recipient of incoming request
+    // Notify the recipient both ways - see the comment on the accept branch
+    // above for why the push isn't gated behind the online check.
     const io = req.app.get('socketio');
     const onlineUsers = getOnlineUsers();
     const recipientSocket = onlineUsers.get(targetUserId);
+    console.log(`[friends] request: recipient ${targetUserId} socket=${recipientSocket || 'offline'}`);
     if (recipientSocket) {
       io.to(recipientSocket).emit('friend-request-received', {
         requesterId: currentUserId,
         requesterName: req.user.username,
         requesterProfileImage: req.user.profileImage
       });
-    } else {
-      sendFriendRequestPush({
-        receiverId: targetUserId,
-        requesterId: currentUserId,
-        requesterName: req.user.username
-      }).catch((error) => console.error('Failed to send friend-request push:', error));
     }
+    sendFriendRequestPush({
+      receiverId: targetUserId,
+      requesterId: currentUserId,
+      requesterName: req.user.username
+    }).catch((error) => console.error('Failed to send friend-request push:', error));
 
     return res.json({ success: true, message: 'Friend request sent' });
   }
